@@ -1,0 +1,315 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+	V.Global.sDirLabor.Declare
+	V.Global.sDirComplete.Declare
+	V.Global.sDirFailed.Declare
+	V.Global.sDirExceptions.Declare
+	V.Global.sFileLabor.Declare
+	V.Global.sFileLaborFile.Declare
+	V.Global.sFileComplete.Declare
+	V.Global.sFileFailed.Declare
+	V.Global.sFileExceptions.Declare
+	V.Global.sFileExceptionsFile.Declare
+Program.External.Include.Library("JB0455.lib")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	'modified to convert minutes to decimals in terms of hours. added wait dialogues. - Ashwin Dsouza - 11072019
+	F.ODBC.Connection!Con.OpenCompanyConnection(500)
+	f.Intrinsic.ui.InvokeWaitDialog("Checking Directory For files","Labor Upload 5516")
+	F.Intrinsic.Control.CallSub(CheckDirectories)
+	F.Intrinsic.Control.CallSub(GetFiles)
+	f.Intrinsic.UI.Msgbox("Records have been processed. Please check Labor directory for exceptions.","Labor Upload 5516")
+	f.Intrinsic.ui.CloseWaitDialog
+	F.ODBC.Connection!con.Close
+
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.CheckDirectories.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	F.Intrinsic.String.Build("{0}\Labor\",V.Caller.FilesDir,V.Global.sDirLabor)
+	F.Intrinsic.File.CreateDir(V.Global.sDirLabor)
+	F.Intrinsic.String.Build("{0}\Labor\Complete\",V.Caller.FilesDir,V.Global.sDirComplete)
+	F.Intrinsic.File.CreateDir(V.Global.sDirComplete)
+	F.Intrinsic.String.Build("{0}\Labor\Failed\",V.Caller.FilesDir,V.Global.sDirFailed)
+	F.Intrinsic.File.CreateDir(V.Global.sDirFailed)
+	F.Intrinsic.String.Build("{0}\Labor\Exceptions\",V.Caller.FilesDir,V.Global.sDirExceptions)
+	F.Intrinsic.File.CreateDir(V.Global.sDirExceptions)
+
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.CheckDirectories.End
+
+Program.Sub.GetFiles.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.sFiles.Declare
+	V.Local.iCnt.Declare
+
+	F.Intrinsic.File.GetFileList(V.Global.sDirLabor,V.Local.sFiles)
+	F.Intrinsic.String.Split(V.Local.sFiles,":",V.Local.sFiles)
+	F.Intrinsic.Control.If(V.Local.sFiles,=,"")
+		F.Intrinsic.Control.End
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.For(V.Local.iCnt,0,V.Local.sFiles.UBound,1)
+			V.Global.sFileLaborFile.Set(V.Local.sFiles(V.Local.iCnt))
+			F.Intrinsic.String.Build("{0}{1}",V.Global.sDirLabor,V.Local.sFiles(V.Local.iCnt),V.Global.sFileLabor)
+			F.Intrinsic.String.Build("{0}{1}_{2}_{3}",V.Global.sDirComplete,V.Ambient.Date.FormatMMDDYYYY,V.Ambient.Time.FormatHHNNSS,V.Local.sFiles(V.Local.iCnt),V.Global.sFileComplete)
+			F.Intrinsic.String.Build("{0}{1}_{2}_{3}",V.Global.sDirFailed,V.Ambient.Date.FormatMMDDYYYY,V.Ambient.Time.FormatHHNNSS,V.Local.sFiles(V.Local.iCnt),V.Global.sFileFailed)
+			F.Intrinsic.String.Build("{0}_{1}_Exception.csv",V.Ambient.Date.FormatMMDDYYYY,V.Ambient.Time.FormatHHNNSS,V.Global.sFileExceptionsFile)
+			F.Intrinsic.String.Build("{0}{1}",V.Global.sDirExceptions,V.Global.sFileExceptionsFile,V.Global.sFileExceptions)
+			F.Intrinsic.Control.CallSub(ImportData)
+		F.Intrinsic.Control.Next(V.Local.iCnt)
+	F.Intrinsic.Control.EndIf
+
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.GetFiles.End
+
+Program.Sub.ImportData.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.sLines.Declare
+	V.Local.iCnt.Declare
+	V.Local.sData.Declare
+	V.Local.sUpload.Declare
+	V.Local.dDate.Declare
+	V.Local.sEmpl.Declare
+	V.Local.bEmployeeNotFound.Declare
+	V.Local.sJob.Declare
+	V.Local.sSuffix.Declare
+	V.Local.sSeq.Declare
+	V.Local.bInvalidJob.Declare
+	V.Local.sWC.Declare
+	V.Local.sHrs.Declare
+	V.Local.sHH.Declare
+	V.Local.sMM.Declare
+	V.Local.sHours.Declare
+	V.Local.sClosed.Declare
+	V.Local.sIndirect.Declare
+	V.Local.sStartTime.Declare
+	V.Local.sFinishTime.Declare
+	V.Local.sRateType.Declare
+	V.Local.sGoodPieces.Declare
+	V.Local.sGP.Declare
+	V.Local.sGPDec.Declare
+	V.Local.sScrapPieces.Declare
+	V.Local.sSP.Declare
+	V.Local.sSPDec.Declare
+	V.Local.sScrapCode.Declare
+	V.Local.sFile.Declare
+	V.Local.sSQL.Declare
+	V.Local.sRet.Declare
+	V.Local.sExcept.Declare
+	V.Local.sEmail.Declare
+	V.Local.sAttachments.Declare
+	V.Local.sSender.Declare
+	V.Local.sRecipient.Declare
+	V.Local.dTermDate.Declare
+	V.Local.bEmployeeTerminated.Declare
+	V.Local.bInvalidSeq.Declare
+	V.Local.sFailed.Declare
+	
+'0 Date (MMDDYY)
+'1 Emp
+'2 Job
+'3 Suffix
+'4 Seq
+'5 Workcenter
+'6 Hours
+'7 Closed (Y/N)
+'8 Indirect (I/D)
+'9 Start Time (HHMM)
+'10 Finish Time (HHMM)
+'10 Rate Type (R-Reg. Time/O-Over Time/2-Dbl. Time)
+'12 Good Piece
+'13 Scrap
+'14 Scrap code
+'--------------
+'15 Employee Rate
+'16 Scrap Reference
+	f.Intrinsic.UI.ChangeWaitStatus("Processing Records in File")
+	F.Intrinsic.File.File2String(V.Global.sFileLabor,V.Local.sLines)
+	F.Intrinsic.String.Split(V.Local.sLines,V.Ambient.NewLine,V.Local.sLines)
+	F.Intrinsic.Control.For(V.Local.iCnt,1,V.Local.sLines.UBound,1)
+		f.Intrinsic.UI.ChangeWaitStatus("Processing Records in File",v.Local.iCnt,0,v.Local.sLines.UBound)
+		F.Intrinsic.Control.If(V.Local.sLines(v.Local.iCnt),<>,"")
+			V.Local.bEmployeeTerminated.Set(False)
+			F.Intrinsic.String.Split(V.Local.sLines(v.Local.iCnt),",",V.Local.sData)
+			'Date
+			V.Local.dDate.Set(V.Local.sData(0))
+			'Employee
+			F.Intrinsic.String.LPad(V.Local.sData(1),"0",5,V.Local.sEmpl.Set)
+			'VALIDATE-EMPLOYEE
+			F.Intrinsic.String.Build("Select Employee,Name,Rate,Date_Termination From V_Employee_Mstr Where Employee = '{0}';",V.Local.sEmpl.Trim,V.Local.sSQL)
+			F.ODBC.Connection!Con.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+			V.Local.bEmployeeNotFound.Set(V.Ambient.ExecuteAndReturnEOF)
+			F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+			F.Intrinsic.Control.If(V.Local.bEmployeeNotFound,=,False,"and",V.Local.sRet(3),!=,"1/1/1900")
+				F.Intrinsic.String.Split(V.Local.sRet(3),"/",V.Local.sRet)
+				F.Intrinsic.Date.DateSerial(V.Local.sRet(2),V.Local.sRet(0),V.Local.sRet(1),V.Local.dTermDate)
+				F.Intrinsic.Control.If(V.Local.dTermDate,<=,V.Local.dDate)
+					V.Local.bEmployeeTerminated.Set(True)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+			V.Local.sRet.Redim(0,0)
+			'Job
+			V.Local.sJob.Set(V.Local.sData(2))
+		
+			'Suffix
+			V.Local.sSuffix.Set(V.Local.sData(3))
+			'VALIDATE-JOB
+			F.Intrinsic.String.Build("Select Job From V_Job_Header Where Job = '{0}' And Suffix = '{1}';",V.Local.sJob.Trim,V.Local.sSuffix.Trim,V.Local.sSQL)
+			F.ODBC.Connection!Con.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+			V.Local.bInvalidJob.Set(V.Ambient.ExecuteAndReturnEOF)
+			'Seq
+			F.Intrinsic.String.LPad(V.Local.sData(4),"0",6,V.Local.sSeq)
+			F.Intrinsic.Control.If(V.Local.sSeq.Trim,=,"")
+				V.Local.sSeq.Set("996000")
+			F.Intrinsic.Control.EndIf
+			'VALIDATE-SEQUENCE
+			F.Intrinsic.String.Build("select SEQ from V_JOB_OPERATIONS where JOB = '{0}' and SUFFIX = '{1}' and SEQ = '{2}' and LMO = 'L';",V.Local.sJob.Trim,V.Local.sSuffix.Trim,V.Local.sSeq.Trim,V.Local.sSQL)
+			F.ODBC.Connection!Con.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+			V.Local.bInvalidSeq.Set(V.Ambient.ExecuteAndReturnEOF)
+			'Workcenter
+			V.Local.sWC.Set(V.Local.sData(5))
+			'Hours
+			V.Local.sHrs.Redim(0,0)
+			F.Intrinsic.String.Split(V.Local.sData(6),".",V.Local.sHrs)
+			V.Local.sMM.Set("0")
+			v.Local.sMM.Redim(0,0)
+
+			
+			F.Intrinsic.Control.If(V.Local.sHrs.UBound,=,1)
+				F.Intrinsic.Control.If(V.Local.sHrs(1),!=,"")
+					'Convert minutes to hour ratio
+					F.Intrinsic.Math.Div(V.Local.sHrs(1),60,V.Local.sMM)
+'					F.Intrinsic.Math.Mult(V.Local.sMM,100,V.Local.sMM)
+
+'					F.Intrinsic.Math.Floor(V.Local.sMM,V.Local.sMM)
+					F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+			f.Intrinsic.String.Split(v.Local.sMM,".",v.Local.sMM)
+			f.Intrinsic.Control.If(v.Local.sMM.UBound,=,1)
+				F.Intrinsic.String.Build("{0}.{1}",V.Local.sHrs(0),V.Local.sMM(1),V.Local.sHours)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Build("{0}.{1}",V.Local.sHrs(0),0,V.Local.sHours)
+			f.Intrinsic.Control.EndIf
+			
+			F.Intrinsic.String.Format(V.Local.sHours,"0.00",V.Local.sHours)
+			
+			'Closed
+			V.Local.sClosed.Set(V.Local.sData(7))
+			'Indirect
+			V.Local.sIndirect.Set(V.Local.sData(8))
+			'Start Time
+			V.Local.sStartTime.Set(V.Local.sData(9))
+			'Finish Time
+			V.Local.sFinishTime.Set(V.Local.sData(10))
+			'Rate Type
+			V.Local.sRateType.Set(V.Local.sData(11))
+			'Good Piece
+			F.Intrinsic.String.Format(V.Local.sData(12),"0.00",V.Local.sGoodPieces)
+			'Scrap
+			F.Intrinsic.String.Format(V.Local.sData(13),"0.00",V.Local.sScrapPieces)
+			'Scrap code
+			V.Local.sScrapCode.Set(V.Local.sData(14))
+			
+			F.Intrinsic.Control.If(V.Local.bEmployeeNotFound,=,True,OR,V.Local.bInvalidJob,=,True,V.Local.bEmployeeTerminated,=,True,V.Local.bInvalidSeq,=,True)
+				F.Intrinsic.String.Build("{0}{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},Labor", V.Local.sExcept,V.Local.dDate.FormatMMDDYY,V.Local.sEmpl,V.Local.sJob,V.Local.sSuffix,V.Local.sSeq,V.Local.sWC,V.Local.sHours,V.Local.sClosed,V.Local.sIndirect,V.Local.sStartTime,V.Local.sFinishTime,V.Local.sRateType,V.Local.sGoodPieces,V.Local.sScrapPieces,V.Local.sScrapCode,V.Local.sExcept)
+				'Employee Not Found
+				F.Intrinsic.Control.If(V.Local.bEmployeeNotFound)
+					F.Intrinsic.String.Build("{0} || Employee-Not-Found",V.Local.sExcept,V.Local.sExcept)
+				F.Intrinsic.Control.EndIf
+				'Terminated Employee
+				F.Intrinsic.Control.If(V.Local.bEmployeeTerminated)
+					F.Intrinsic.String.Build("{0} || Employee-Terminated-on-{1}",V.Local.sExcept,V.Local.dTermDate.FormatYYYY-MM-DD,V.Local.sExcept)
+				F.Intrinsic.Control.EndIf
+				'Invalid Job
+				F.Intrinsic.Control.If(V.Local.bInvalidJob)
+					F.Intrinsic.String.Build("{0} || Invalid-Job",V.Local.sExcept,V.Local.sExcept)
+				F.Intrinsic.Control.EndIf
+				'Invalid Seq
+				F.Intrinsic.Control.If(V.Local.bInvalidSeq)
+					F.Intrinsic.String.Build("{0} || Invalid-Job-Seq",V.Local.sExcept,V.Local.sExcept)
+				F.Intrinsic.Control.EndIf
+				'Add File
+				F.Intrinsic.String.Build("{0} || File: {1}{2}",V.Local.sExcept,V.Global.sFileFailed,V.Ambient.NewLine,V.Local.sExcept)
+				
+				F.Intrinsic.Control.If(V.Local.sFailed.Length,!=,0)
+					F.Intrinsic.String.Build("{0}{1}",V.Local.sFailed,V.Ambient.NewLine,V.Local.sFailed)
+				F.Intrinsic.Control.Else
+					'Write in columns
+					F.Intrinsic.String.Build("{0}{1}",V.Local.sLines(0),V.Ambient.NewLine,V.Local.sFailed)
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.String.Build("{0}{1}",V.Local.sFailed,V.Local.sLines(V.Local.iCnt),V.Local.sFailed)
+				F.Intrinsic.Variable.RemoveArrayElementByOrdinal(V.Local.sLines,V.Local.iCnt,V.Local.sLines)
+				F.Intrinsic.Math.Sub(V.Local.iCnt,1,V.Local.iCnt)
+			F.Intrinsic.Control.Else
+				F.Data.DataTable.AddRow("JB0455","Date",V.Local.dDate.FormatMMDDYY,"Employee",V.Local.sEmpl.Left5,"Job",V.Local.sJob.Left6,"Suffix",V.Local.sSuffix.Left3,"Seq",V.Local.sSeq.Left6,"WC",V.Local.sWC.Left4,"Hours",V.Local.sHours,"Closed",V.Local.sClosed.Left1,"Indirect",V.Local.sIndirect.Left1,"StartTime",V.Local.sStartTime.Left4,"StopTime",V.Local.sFinishTime.Left4,"RateType",V.Local.sRateType.Left1,"GoodPcs",V.Local.sGoodPieces,"ScrapPcs",V.Local.sScrapPieces,"Reason",V.Local.sScrapCode.Left2)
+				F.Intrinsic.Control.If(V.Local.sUpload.Length,!=,0)
+					F.Intrinsic.String.Build("{0}{1}",V.Local.sUpload,V.Ambient.NewLine,V.Local.sUpload)
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.String.Build("{16}{1}{0}{2}{0}{3}{0}{4}{0}{5}{0}{6}{0}{7}{0}{8}{0}{9}{0}{10}{0}{11}{0}{12}{0}{13}{0}{14}{0}{15}", V.Ambient.Tab,V.Local.dDate.FormatMMDDYY,V.Local.sEmpl,V.Local.sJob,V.Local.sSuffix,V.Local.sSeq,V.Local.sWC,V.Local.sHours,V.Local.sClosed,V.Local.sIndirect,V.Local.sStartTime,V.Local.sFinishTime,V.Local.sRateType,V.Local.sGoodPieces,V.Local.sScrapPieces,V.Local.sScrapCode,V.Local.sUpload,V.Local.sUpload)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+	f.Intrinsic.UI.ChangeWaitStatus("Uploading records to GSS")
+	F.Intrinsic.Control.If(V.DataTable.JB0455.RowCount,>,0)
+'	F.Intrinsic.Control.If(V.Local.sUpload,!=,"")
+		F.Intrinsic.String.Join(V.Local.sLines,V.Ambient.NewLine,V.Local.sLines)
+'		F.Intrinsic.String.Build("{0}\{1}{2}MOPEN.TXT",V.Caller.FilesDir,V.Caller.CompanyCode,V.Caller.Terminal,V.Local.sFile)
+'		F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sUpload)
+'		F.Intrinsic.String.Build("{0}{1}MOPEN.TXT",V.Caller.CompanyCode,V.Caller.Terminal,V.Local.sFile)
+'		F.Intrinsic.Task.LaunchGSSSync("JB0455","-C",V.Local.sFile)
+'		F.Intrinsic.String.Build("{0}\{1}{2}MOPEN.TXT",V.Caller.FilesDir,V.Caller.CompanyCode,V.Caller.Terminal,V.Local.sFile)
+'		F.Intrinsic.File.DeleteFile(V.Local.sFile)
+		
+		F.Intrinsic.Control.CallSub(JB0455Sync)
+		F.Intrinsic.File.String2File(V.Global.sFileComplete,V.Local.sLines)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Local.sExcept,!=,"")
+		F.Intrinsic.File.String2File(V.Global.sFileExceptions,V.Local.sExcept)
+		F.Global.Security.GetUserEmail(V.Caller.User,V.Caller.CompanyCode,V.Local.sEmail)
+		F.Intrinsic.Control.If(V.Local.sEmail,<>,"")
+			F.Intrinsic.String.Build("{0}*!*{1}@!@{2}*!*{3}",V.Global.sFileLaborFile,V.Global.sDirLabor,V.Global.sFileExceptionsFile,V.Global.sDirExceptions,V.Local.sAttachments)
+			F.Intrinsic.String.Build("{0}*!*{1}",V.Local.sEmail,V.Caller.User,V.Local.sSender)
+			F.Intrinsic.String.Build("{0}*!*{1}",V.Caller.User,V.Local.sEmail,V.Local.sRecipient)
+			F.Global.Messaging.QueueMessage(V.Caller.CompanyCode,0,"","Labor Import Failed",V.Local.sSender,V.Local.sRecipient,"View attachments for more information.",5,"",False,"","","","","","","",V.Local.sAttachments,False)
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.File.String2File(V.Global.sFileFailed,V.Local.sFailed)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.File.DeleteFile(V.Global.sFileLabor)
+
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.ImportData.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$avaldez$}$20190405102019640$}$CBUu04veoT9NExad5Mkb3ylWEN0INN4AyfOkGO2bWwknID6/FbQeTlGnNmINr9A3FONl06wxfRY=
+Program.Sub.Comments.End
